@@ -4,16 +4,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
+
+var defaultparams map[string]string
+
+func init() {
+	defaultparams = map[string]string{
+		"page":      "1",
+		"page_size": "40",
+	}
+}
+
+func combineParamsWithDefaults(params url.Values) url.Values {
+	if params == nil {
+		params = url.Values{}
+	}
+
+	for key, value := range defaultparams {
+		if setvalue := params.Get(key); setvalue == "" {
+			params.Set(key, value)
+		}
+	}
+
+	return params
+}
 
 type StattleshipAPI struct {
 	AccessToken string
 }
 
-func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint string, params map[string]interface{}, result interface{}) error {
-	url := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
+func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint string, params url.Values, result interface{}) error {
+	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
+	baseurl, err := url.Parse(rawurl)
+	if err != nil {
+		return err
+	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	params = combineParamsWithDefaults(params)
+	baseurl.RawQuery = params.Encode()
+
+	req, err := http.NewRequest("GET", baseurl.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -29,14 +60,10 @@ func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint st
 	}
 	defer resp.Body.Close()
 
-	//  out, err := os.Create("result.json")
-	//  defer out.Close()
-	//  io.Copy(out, resp.Body)
-
 	return json.NewDecoder(resp.Body).Decode(result)
 }
 
-func (api *StattleshipAPI) Games(sport string, league string, params map[string]interface{}) (*GamesResult, error) {
+func (api *StattleshipAPI) Games(sport string, league string, params url.Values) (*GamesResult, error) {
 	var result GamesResult
 	err := api.callEndPoint(sport, league, "games", params, &result)
 	return &result, err
