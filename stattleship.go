@@ -3,8 +3,11 @@ package stattleship
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
+	"sync"
 )
 
 var defaultparams map[string]string
@@ -34,11 +37,11 @@ type StattleshipAPI struct {
 	AccessToken string
 }
 
-func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint string, params url.Values, result interface{}) error {
+func (api *StattleshipAPI) Get(sport string, league string, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
 	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
 	baseurl, err := url.Parse(rawurl)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	params = combineParamsWithDefaults(params)
@@ -46,7 +49,7 @@ func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint st
 
 	req, err := http.NewRequest("GET", baseurl.String(), nil)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Token token=%v", api.AccessToken))
@@ -56,15 +59,86 @@ func (api *StattleshipAPI) callEndPoint(sport string, league string, endpoint st
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
-	return json.NewDecoder(resp.Body).Decode(result)
+	headerdetails := createHeaderDetails(&resp.Header)
+
+	var result interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+
+	return &result, headerdetails, err
 }
 
-func (api *StattleshipAPI) Games(sport string, league string, params url.Values) (*GamesResult, error) {
-	var result GamesResult
-	err := api.callEndPoint(sport, league, "games", params, &result)
-	return &result, err
+func createHeaderDetails(header *http.Header) *HeaderDetails {
+	headerdetails := HeaderDetails{}
+
+	perPage := header.Get("Per-Page")
+	i, err := strconv.Atoi(perPage)
+	if err == nil {
+		headerdetails.PerPage = i
+	}
+
+	total := header.Get("Total")
+	i, err = strconv.Atoi(total)
+	if err == nil {
+		headerdetails.Total = i
+	}
+
+	return &headerdetails
+}
+
+func (api *StattleshipAPI) GetAll(sport string, league string, endpoint string, params url.Values) (*interface{}, error) {
+	if params == nil {
+		params = url.Values{}
+	}
+
+	params.Set("page", "1")
+
+	results, headerdetails, err := api.Get(sport, league, endpoint, params)
+	if err != nil {
+		return nil, err
+	}
+
+	total := headerdetails.Total
+	perpage := headerdetails.PerPage
+	if total < perpage {
+		return results, nil
+	}
+
+	//If there are more pages to get, lets do it concurrently
+	resultschan := make(chan *interface{})
+
+	numpages := int(math.Ceil(float64(total) / float64(perpage)))
+
+	var waitgroup sync.WaitGroup
+	waitgroup.Add(numpages - 1)
+
+	//Note: starting at 2 because we've already got the first page
+	for i := 2; i <= numpages; i++ {
+		loopparams, _ := url.ParseQuery(params.Encode()) //copy the original params
+		loopparams.Set("page", strconv.Itoa(i))
+		go func(loopparams url.Values) {
+			loopresult, _, err := api.Get(sport, league, endpoint, loopparams)
+			if err == nil {
+				resultschan <- loopresult
+			}
+			waitgroup.Done()
+		}(loopparams)
+	}
+
+	go func() {
+		waitgroup.Wait()
+		close(resultschan)
+	}()
+
+	//	for loopresult := range resultschan {
+	//		loopresultobj := (*loopresult).(map[string]interface{})
+	//		games := loopresultobj["games"].([]interface{})
+	//
+	//		//TODO: Merge loopresultobj into results
+	//	}
+
+	return results, nil
 }

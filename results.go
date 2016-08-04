@@ -1,5 +1,10 @@
 package stattleship
 
+type HeaderDetails struct {
+	PerPage int
+	Total   int
+}
+
 type GamesResult struct {
 	HomeTeams    []*Team   `json:"home_teams"`
 	AwayTeams    []*Team   `json:"away_teams"`
