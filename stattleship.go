@@ -133,12 +133,51 @@ func (api *StattleshipAPI) GetAll(sport string, league string, endpoint string, 
 		close(resultschan)
 	}()
 
-	//	for loopresult := range resultschan {
-	//		loopresultobj := (*loopresult).(map[string]interface{})
-	//		games := loopresultobj["games"].([]interface{})
-	//
-	//		//TODO: Merge loopresultobj into results
-	//	}
+	for loopresult := range resultschan {
+		merged := mergeResults(results, loopresult)
+		results = &merged
+	}
 
 	return results, nil
+}
+
+func mergeResults(results *interface{}, tomerge *interface{}) interface{} {
+	resultsobj := (*results).(map[string]interface{})
+	tomergeobj := (*tomerge).(map[string]interface{})
+
+	for key, value := range tomergeobj {
+		if _, ok := resultsobj[key]; !ok {
+			resultsobj[key] = value
+			continue
+		}
+
+		tomergecol := value.([]interface{})
+		resultscol := resultsobj[key].([]interface{})
+		for _, item := range tomergecol {
+			itemobj := item.(map[string]interface{})
+			if _, ok := itemobj["id"]; !ok {
+				resultscol = append(resultscol, item)
+				continue
+			}
+
+			itemid := itemobj["id"].(string)
+			//does this item already exist in the results?
+			alreadyexists := false
+			for _, resitem := range resultscol {
+				resitemobj := resitem.(map[string]interface{})
+				if resitemobj["id"] == itemid {
+					alreadyexists = true
+					break
+				}
+			}
+
+			if !alreadyexists {
+				resultscol = append(resultscol, item)
+				fmt.Println(len(resultscol))
+			}
+		}
+		resultsobj[key] = resultscol
+	}
+
+	return resultsobj
 }
