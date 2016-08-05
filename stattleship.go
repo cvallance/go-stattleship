@@ -23,8 +23,6 @@ type StattleshipAPI struct {
 	AccessToken string
 }
 
-type StattleshipResult map[string][]map[string]interface{}
-
 func (api *StattleshipAPI) Get(sport string, league string, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
 	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
 	baseurl, err := url.Parse(rawurl)
