@@ -19,23 +19,11 @@ func init() {
 	}
 }
 
-func combineParamsWithDefaults(params url.Values) url.Values {
-	if params == nil {
-		params = url.Values{}
-	}
-
-	for key, value := range defaultparams {
-		if setvalue := params.Get(key); setvalue == "" {
-			params.Set(key, value)
-		}
-	}
-
-	return params
-}
-
 type StattleshipAPI struct {
 	AccessToken string
 }
+
+type StattleshipResult map[string][]map[string]interface{}
 
 func (api *StattleshipAPI) Get(sport string, league string, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
 	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
@@ -134,16 +122,16 @@ func (api *StattleshipAPI) GetAll(sport string, league string, endpoint string, 
 	}()
 
 	for loopresult := range resultschan {
-		merged := mergeResults(results, loopresult)
+		merged := mergeResults(*results, *loopresult)
 		results = &merged
 	}
 
 	return results, nil
 }
 
-func mergeResults(results *interface{}, tomerge *interface{}) interface{} {
-	resultsobj := (*results).(map[string]interface{})
-	tomergeobj := (*tomerge).(map[string]interface{})
+func mergeResults(results interface{}, tomerge interface{}) interface{} {
+	resultsobj := results.(map[string]interface{})
+	tomergeobj := tomerge.(map[string]interface{})
 
 	for key, value := range tomergeobj {
 		if _, ok := resultsobj[key]; !ok {
@@ -173,11 +161,24 @@ func mergeResults(results *interface{}, tomerge *interface{}) interface{} {
 
 			if !alreadyexists {
 				resultscol = append(resultscol, item)
-				fmt.Println(len(resultscol))
 			}
 		}
 		resultsobj[key] = resultscol
 	}
 
 	return resultsobj
+}
+
+func combineParamsWithDefaults(params url.Values) url.Values {
+	if params == nil {
+		params = url.Values{}
+	}
+
+	for key, value := range defaultparams {
+		if setvalue := params.Get(key); setvalue == "" {
+			params.Set(key, value)
+		}
+	}
+
+	return params
 }
