@@ -23,8 +23,17 @@ type StattleshipAPI struct {
 	AccessToken string
 }
 
-func (api *StattleshipAPI) Get(sport string, league string, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
+func (api *StattleshipAPI) GetById(sport, league, endpoint, id string, params url.Values) (*interface{}, *HeaderDetails, error) {
+	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v/%v", sport, league, endpoint, id)
+	return api.get(rawurl, params)
+}
+
+func (api *StattleshipAPI) Get(sport, league, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
 	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
+	return api.get(rawurl, params)
+}
+
+func (api *StattleshipAPI) get(rawurl string, params url.Values) (*interface{}, *HeaderDetails, error) {
 	baseurl, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, nil, err
