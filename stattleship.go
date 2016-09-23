@@ -24,12 +24,12 @@ type StattleshipAPI struct {
 }
 
 func (api *StattleshipAPI) GetById(sport, league, endpoint, id string, params url.Values) (*interface{}, *HeaderDetails, error) {
-	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v/%v", sport, league, endpoint, id)
+	rawurl := fmt.Sprintf("https://api.stattleship.com/%v/%v/%v/%v", sport, league, endpoint, id)
 	return api.get(rawurl, params)
 }
 
 func (api *StattleshipAPI) Get(sport, league, endpoint string, params url.Values) (*interface{}, *HeaderDetails, error) {
-	rawurl := fmt.Sprintf("https://www.stattleship.com/%v/%v/%v", sport, league, endpoint)
+	rawurl := fmt.Sprintf("https://api.stattleship.com/%v/%v/%v", sport, league, endpoint)
 	return api.get(rawurl, params)
 }
 
